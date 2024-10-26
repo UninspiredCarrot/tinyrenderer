@@ -28,7 +28,7 @@ void line(int x0, int y0, int x1, int y1, TGAImage &image, TGAColor colour) {
 	}
 	int dx = x1-x0;
 	int dy = y1-y0;
-	float derror = std::abs(dy/float(dx));
+	float derror = std::abs(dy)*2;
 	float error = 0;
 	int y = y0;
 	for (int x=x0; x<=x1; x++) {
@@ -40,7 +40,7 @@ void line(int x0, int y0, int x1, int y1, TGAImage &image, TGAColor colour) {
 		error += derror;
 		if (error>.5) {
 			y += (y1>y0?1:-1);
-			error -= 1.;
+			error -= dx*2.;
 		}
 	}
 }
