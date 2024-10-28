@@ -13,6 +13,7 @@ const int height = 200;
 
 void line(Vec2i p0, Vec2i p1, TGAImage &image, TGAColor color);
 void triangle(Vec2i t0, Vec2i t1, Vec2i t2, TGAImage &image, TGAColor color);
+bool in_triangle(Vec2i P, Vec2i A, Vec2i B, Vec2i C);
 
 int main(int argc, char** argv) {
 	TGAImage image(width, height, TGAImage::RGB);
@@ -69,33 +70,51 @@ void triangle(Vec2i t0, Vec2i t1, Vec2i t2, TGAImage &image, TGAColor color) {
     if (t0.y<t2.y) std::swap(t0, t2); 
     if (t1.y<t2.y) std::swap(t1, t2);
 
-	Vec2i t3 = Vec2i(t0.x - (((float)(t2.x - t0.x)/(t2.y - t0.y))*(t0.y - t1.y)), t1.y);
+	// find bounding box
+	int bbox_left = std::min(t0.x, std::min(t1.x, t2.x));
+	int bbox_right = std::max(t0.x, std::max(t1.x, t2.x));
+	int bbox_bottom = std::min(t0.y, std::min(t1.y, t2.y));
+	int bbox_top = std::max(t0.y, std::max(t1.y, t2.y));
 
-	// fill bottom half
+	Vec2i P;
 
-	float slope_2_3 = (float)(t3.x - t2.x) / (t3.y - t2.y);
-	float slope_2_1 = (float)(t1.x - t2.x) / (t1.y - t2.y);
-
-	float current_x1 = t2.x;
-	float current_x2 = t2.x;
-	for (int line_y = t2.y; line_y <= t1.y; line_y++) {
-		line(Vec2i(current_x1, line_y), Vec2i(current_x2, line_y), image, color);
-		current_x1 += slope_2_3;
-		current_x2 += slope_2_1;
+	for (P.x = bbox_left; P.x <= bbox_right; P.x++) {
+		for (P.y = bbox_bottom; P.y <= bbox_top; P.y++) {
+			if (in_triangle(P, t0, t1, t2)) {
+				image.set(P.x, P.y, color);
+			}
+		}
 	}
 
-	// fill top half
+}
 
-	float slope_1_0 = (float)(t0.x - t1.x) / (t0.y - t1.y);
-	float slope_3_0 = (float)(t0.x - t3.x) / (t0.y - t3.y);
+bool in_triangle(Vec2i P, Vec2i A, Vec2i B, Vec2i C) {
+	// P = A + w1(B - A) + w2(C - A)
 
-	current_x1 = t1.x;
-	current_x2 = t3.x;
-	for (int line_y = t3.y; line_y <= t0.y; line_y++) {
-		line(Vec2i(current_x1, line_y), Vec2i(current_x2, line_y), image, color);
-		current_x1 += slope_1_0;
-		current_x2 += slope_3_0;
-	}
+	// Px = Ax + w1(Bx - Ax) + w2(Cx - Ax)
+	// Py = Ay + w1(By - Ay) + w2(Cy - Ay)
 
+	// w2 = Py - Ay - w1(By - Ay) / (Cy - Ay) *
+
+	// Px = Ax + w1(Bx - Ax) + (Py - Ay - w1(By - Ay) / (Cy - Ay))(Cx - Ax)
+	// Px(Cy - Ay) = Ax(Cy - Ay) + w1(Bx - Ax)(Cy - Ay) + (Py - Ay)(Cx - Ax) -  w1(By - Ay)(Cx - Ax)
+	// w1(By - Ay)(Cx - Ax) - w1(Bx - Ax)(Cy - Ay) = Ax(Cy - Ay)  + (Py - Ay)(Cx - Ax)  - Px(Cy - Ay)
+	// w1[(By - Ay)(Cx - Ax) - (Bx - Ax)(Cy - Ay)] = Ax(Cy - Ay)  + (Py - Ay)(Cx - Ax)  - Px(Cy - Ay)
+	// w1 = (Ax(Cy - Ay)  + (Py - Ay)(Cx - Ax)  - Px(Cy - Ay))/[(By - Ay)(Cx - Ax) - (Bx - Ax)(Cy - Ay)] *
+
+	// Point P is inside the triangle ABC if:
+	//	w1 >= 0 and w1 >= 0 and (w1 + w2) <= 1
+
+	// Convert integers to floats to avoid integer division issues.
+    float denominator = (float)((B.y - A.y) * (C.x - A.x) - (B.x - A.x) * (C.y - A.y));
+
+    // Check for degenerate (zero-area) triangle
+    if (denominator == 0) return false;
+
+    float w1 = (A.x * (C.y - A.y) + (P.y - A.y) * (C.x - A.x) - P.x * (C.y - A.y)) / denominator;
+    float w2 = (P.y - A.y - w1 * (B.y - A.y)) / (float)(C.y - A.y);
+
+    // Check if P is inside the triangle
+    return (w1 >= 0) && (w2 >= 0) && (w1 + w2 <= 1);
 
 }
